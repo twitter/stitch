@@ -1,0 +1,9 @@
+load("@io_bazel_rules_scala//jmh:jmh.bzl", "scala_benchmark_jmh")
+
+scala_benchmark_jmh(
+    name = "benchmark",
+    deps = [
+        "//stitch/stitch-core:cache",
+    ],
+    srcs = glob(["*.scala"]),
+)
