@@ -1,0 +1,2 @@
+project = "Stitch"
+author = "X"
