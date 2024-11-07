@@ -30,7 +30,6 @@ You can now run tests with `./sbt test`, or build a binary with `./sbt assembly`
 
 * Website: https://twitter.github.io/stitch
 * Source: https://github.com/twitter/stitch
-* API reference: https://twitter.github.io/stitch/docs/com/twitter/stitch
 
 Documentation improvements are always welcome, so please send patches
 our way.
