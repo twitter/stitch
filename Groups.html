@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Groups &#8212; Stitch  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Service Adapters" href="ServiceAdapters.html" />
+    <link rel="prev" title="Failure handling" href="FailureHandling.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="groups">
+<span id="id1"></span><h1>Groups<a class="headerlink" href="#groups" title="Link to this heading">¶</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Be sure you have followed the instructions in <a class="reference internal" href="Setup.html#setup"><span class="std std-ref">Setup</span></a> for importing dependencies before running examples.</p>
+</div>
+<p>Stitch Groups are the main APIs that customers will want to implement to make their
+service’s endpoints usable with Stitch. For most Stitch customers who are calling
+services there will already be a Group for each batch endpoint provided by the
+service owner.</p>
+<p><cite>Groups</cite> are used to batch and perform RPCs to other services.
+There are 2 main classifications of <cite>Groups</cite>, Map and Seq.
+Map groups are for APIs that return key-value mappings while Seq groups are for
+APIs that return a Seq of results in the same order as the input.
+For both of these Groups, <a class="reference internal" href="StitchConcepts.html#deduplication-non-idempotent-calls"><span class="std std-ref">keys are de-duplicated by equality</span></a>.</p>
+<p>Focusing on the existing Seq and Map groups, there are only a few things that need to be
+configured in order to make a Group to take advantage of batch endpoints in a service.</p>
+<p><cite>run</cite> is an implementer-defined function from <cite>Seq[Key]</cite> to either
+<cite>Future[Seq[Try[Value]]]</cite> or <cite>Future[Key =&gt; Try[Value]]</cite>.
+This is generally just a call to a service’s batch endpoint.
+Stitch manages the size and concurrency for you so the run function only
+has to worry about making the actual RPC.</p>
+<p><cite>maxSize</cite> configures the max number of keys in a single RPC</p>
+<p><cite>maxConcurrency</cite> configures the max number of in-flight requests for each <cite>Stitch.run</cite>.</p>
+<p>When a <cite>Group</cite> is used by Stitch, the Stitch <a class="reference internal" href="Advanced.html#runners"><span class="std std-ref">Runners</span></a> ensures
+that the <cite>Seq[Key]</cite> passed into the <cite>Group.run</cite> method is at most <cite>maxSize</cite>.
+Stitch also ensures that there are at most <cite>maxConcurrency</cite> pending
+Futures returned by <cite>run</cite>. In other words, run will be called only when the
+<cite>maxConcurrency</cite> allows it to be called, and will be given a <cite>Seq[Key]</cite>
+of the configured size.</p>
+<p>Below are some examples of <cite>Groups</cite> with placeholder code for performing an RPC.
+The first example is a <cite>Group</cite> that simply adds 1 to each input value,
+this could be replaced with any Future returning code though,
+such as a task scheduled with a timer.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">SeqGroup</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">]{</span>
+<span class="w">      </span><span class="k">override</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">maxSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+<span class="w">      </span><span class="k">override</span><span class="w"> </span><span class="kd">val</span><span class="w"> </span><span class="n">maxConcurrency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">10</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span><span class="w"> </span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// any code that takes in a Seq[Int]</span>
+<span class="w">    </span><span class="c1">// and returns a Future[Seq[Try[Int]]</span>
+<span class="w">    </span><span class="nc">Future</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">keys</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Return</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)))</span>
+<span class="p">}}</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">)))</span><span class="w"> </span><span class="c1">// result: 1</span>
+</pre></div>
+</div>
+<p>In the next example we’ve pulled out the <cite>Future</cite> code into <cite>performNonBatchedRpc</cite>
+which would be similar to accessing an existing client with a non-batch API that returns a <cite>Future</cite>.
+Even though this example endpoint isn’t batched, it may still be beneficial to use a <cite>Group</cite> instead
+of just utilizing <cite>callFuture</cite> because it can increase batching performance of later calls.
+An example of timing differences resulting in different batching behaviors can be seen in
+the second example in <a class="reference internal" href="Advanced.html#ordering"><span class="std std-ref">the Ordering section</span></a>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">performNonBatchedRpc</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nc">Future</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">).</span><span class="n">liftToTry</span>
+<span class="p">}</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">SeqGroup</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">]{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span><span class="w"> </span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nc">Future</span><span class="p">.</span><span class="n">collect</span><span class="p">(</span><span class="n">keys</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">performNonBatchedRpc</span><span class="p">))</span>
+<span class="p">}}</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">)))</span><span class="w"> </span><span class="c1">// result: 1</span>
+</pre></div>
+</div>
+<p>The last example is the most typical type of <cite>Group</cite>. Typically a <cite>Group</cite> is used to ensure
+batching to backends, so it will be used to make RPCs to batched endpoints. <cite>performBatchedRpc</cite>
+would be similar to accessing an existing client with a batch API that returns a <cite>Future</cite>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">performBatchedRpc</span><span class="p">(</span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nc">Future</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Return</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)))</span>
+<span class="p">}</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">SeqGroup</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">]{</span>
+<span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span><span class="w"> </span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">performBatchedRpc</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+<span class="p">}}</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">)))</span><span class="w"> </span><span class="c1">// result: 1</span>
+</pre></div>
+</div>
+<p>We can do all the same things with a <cite>MapGroup</cite> as we can with a <cite>SeqGroup</cite> as well.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">performBatchedRpc</span><span class="p">(</span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Int</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nc">Future</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">zip</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Return</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">))).</span><span class="n">toMap</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">MapGroup</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">]{</span>
+<span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span><span class="w"> </span><span class="nc">Seq</span><span class="p">[</span><span class="nc">Int</span><span class="p">]):</span><span class="w"> </span><span class="nc">Future</span><span class="p">[</span><span class="nc">Int</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Try</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">performBatchedRpc</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+<span class="p">}}</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">)))</span><span class="w"> </span><span class="c1">// result: 1</span>
+</pre></div>
+</div>
+<p>When using <cite>Groups</cite>, you should use equal <cite>Group</cite> instances (e.g. the same
+instance, or if the <cite>Group</cite> is a <cite>case class</cite> then it has the same input arguments)
+for all calls to a given backend. This is part of why <a class="reference internal" href="ServiceAdapters.html#service-adapters"><span class="std std-ref">Service Adapters</span></a> often hide
+the <cite>Group</cite>, since the implementer can ensure that the correct <cite>Group</cite> is used.
+Stitch batches requests by aggregating all calls to a specific <cite>Group</cite>,
+so in order to batch across calls, those calls must have equal <cite>Groups</cite>.
+If you don’t, then no batching will occur.
+This means doing something like this which will batch into a single RPC:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">g</span><span class="p">:</span><span class="w"> </span><span class="nc">Group</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">]</span>
+<span class="nc">Stitch</span><span class="p">.</span><span class="n">join</span><span class="p">(</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">),</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">g</span><span class="p">))</span>
+</pre></div>
+</div>
+<img alt="Graphs showing batching when using the correct Group instance" src="_images/GroupsSameInstance.png" />
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="nc">Stitch</span><span class="p">.</span><span class="n">join</span><span class="p">(</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Group</span><span class="p">{}),</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">Group</span><span class="p">{}))</span>
+</pre></div>
+</div>
+<p>but doing something like this <strong>won’t</strong> batch:</p>
+<img alt="Graph showing no batching when using incorrect Group instances" src="_images/GroupsDifferentInstance.png" />
+<p>Next <a class="reference internal" href="ServiceAdapters.html#service-adapters"><span class="std std-ref">Service Adapters</span></a></p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Stitch</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Setup.html">Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchVsFuture.html">Stitch vs Future</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WhyUseStitch.html">Why use Stitch?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="BasicExamples.html">Basic Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FailureHandling.html">Failure handling</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ServiceAdapters.html">Service Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchConcepts.html">Stitch Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="QueryExecution.html">Query Execution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html#never-re-runnable">Never Re-Runnable</a></li>
+<li class="toctree-l1"><a class="reference internal" href="EfficientQueries.html">Efficient Queries</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchCache.html">StitchCache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TwitterLocals.html">Twitter Locals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Recursion.html">Recursion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Advanced.html">Advanced</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Arrows.html">Arrows</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="FailureHandling.html" title="previous chapter">Failure handling</a></li>
+      <li>Next: <a href="ServiceAdapters.html" title="next chapter">Service Adapters</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/Groups.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

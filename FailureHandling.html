@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Failure handling &#8212; Stitch  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Groups" href="Groups.html" />
+    <link rel="prev" title="Basic Examples" href="BasicExamples.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="failure-handling">
+<span id="id1"></span><h1>Failure handling<a class="headerlink" href="#failure-handling" title="Link to this heading">¶</a></h1>
+<p>Stitch provides <cite>handle</cite> and <cite>rescue</cite> methods on queries (as with
+<a class="reference external" href="https://twitter.github.io/finagle/guide/Futures.html">Futures</a>).
+Typically result objects in the service API will be converted to
+either a successful result or an exception by the service API,
+so it’s important to handle exceptions, in particular
+<cite>stitch.NotFound</cite> for keys which aren’t found.</p>
+<p>Just as with Futures, <cite>map</cite> and <cite>flatMap</cite> functions are applied
+only for successful results; exceptions are passed through. Operations
+which combine more than one query (<cite>join</cite>, <cite>traverse</cite>,
+<cite>collect</cite>) fail if any of the underlying queries fail (again just as
+with Futures).</p>
+<p>Here’s an example of recovering from a failure by filtering it out:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">failEvenNumbers</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">[</span><span class="nc">Option</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">exception</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="nc">IllegalArgumentException</span><span class="p">)</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="nc">Some</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">traverse</span><span class="p">(</span><span class="nc">Seq</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">    </span><span class="n">failEvenNumbers</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+<span class="w">      </span><span class="p">.</span><span class="n">handle</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="n">_:</span><span class="w"> </span><span class="nc">IllegalArgumentException</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">None</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="p">.</span><span class="n">flatten</span><span class="p">)</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Successful results are wrapped in <cite>Some</cite>; failures become <cite>None</cite>;
+and we flatten the resulting <cite>Seq[Option[Int]]</cite> into a
+<cite>Seq[Int]</cite> containing only the successful results.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">failEvenNumbers</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">match</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">exception</span><span class="p">(</span><span class="k">new</span><span class="w"> </span><span class="nc">IllegalArgumentException</span><span class="p">)</span>
+<span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">traverse</span><span class="p">(</span><span class="nc">Seq</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">      </span><span class="n">failEvenNumbers</span><span class="p">(</span><span class="n">i</span><span class="p">).</span><span class="n">liftToOption</span><span class="p">()</span>
+<span class="w">  </span><span class="p">}.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="p">.</span><span class="n">flatten</span><span class="p">)</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>We do the same thing again but with <cite>liftToOption</cite> instead which will lift
+successful results into <cite>Some(_)</cite> and return <cite>None</cite> for exceptions.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">traverse</span><span class="p">(</span><span class="nc">Seq</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">      </span><span class="n">failEvenNumbers</span><span class="p">(</span><span class="n">i</span><span class="p">).</span><span class="n">liftToTry</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>If we want to examine the exceptions we can also do <cite>liftToTry</cite> to get back a <cite>Stitch[Try[Int]]</cite>.</p>
+<p>Next: <a class="reference internal" href="Groups.html#groups"><span class="std std-ref">Groups</span></a></p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Stitch</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Setup.html">Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchVsFuture.html">Stitch vs Future</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WhyUseStitch.html">Why use Stitch?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="BasicExamples.html">Basic Examples</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Failure handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Groups.html">Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ServiceAdapters.html">Service Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchConcepts.html">Stitch Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="QueryExecution.html">Query Execution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html#never-re-runnable">Never Re-Runnable</a></li>
+<li class="toctree-l1"><a class="reference internal" href="EfficientQueries.html">Efficient Queries</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchCache.html">StitchCache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TwitterLocals.html">Twitter Locals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Recursion.html">Recursion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Advanced.html">Advanced</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Arrows.html">Arrows</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="BasicExamples.html" title="previous chapter">Basic Examples</a></li>
+      <li>Next: <a href="Groups.html" title="next chapter">Groups</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/FailureHandling.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

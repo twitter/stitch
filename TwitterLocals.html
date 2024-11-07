@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Twitter Locals &#8212; Stitch  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Recursion" href="Recursion.html" />
+    <link rel="prev" title="StitchCache" href="StitchCache.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="twitter-locals">
+<span id="id1"></span><h1>Twitter Locals<a class="headerlink" href="#twitter-locals" title="Link to this heading">¶</a></h1>
+<p><a class="reference external" href="https://twitter.github.io/util/docs/com/twitter/util/Local.html">Locals</a> and <a class="reference external" href="https://twitter.github.io/finagle/guide/Contexts.html">Contexts</a>
+are available to use in Stitch but there is a catch, the locals that are available in the Stitch are the ones that are
+defined when Stitch.run is called or within a <cite>Stitch.let</cite> scope. This can have some unexpected results.</p>
+<p>In these examples, the <cite>local</cite> is not defined because Stitches are <a class="reference internal" href="StitchConcepts.html#lazy"><span class="std std-ref">evaluated lazily</span></a> so
+even though the <cite>local</cite> may be available when the Stitch is created, the <cite>local</cite> is not available when it’s
+actually evaluated.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">local</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">com</span><span class="p">.</span><span class="n">twitter</span><span class="p">.</span><span class="n">util</span><span class="p">.</span><span class="nc">Local</span><span class="p">[</span><span class="nc">Int</span><span class="p">]()</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="mi">1</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">  </span><span class="n">local</span><span class="p">())</span>
+<span class="p">)</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span><span class="w"> </span><span class="c1">// result: None</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">flatMap</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">  </span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="mi">1</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">local</span><span class="p">()))</span>
+<span class="p">)</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span><span class="w"> </span><span class="c1">// result: None</span>
+</pre></div>
+</div>
+<p>In the below examples, the <cite>local</cite> is defined because it wraps the <cite>Stitch.run</cite> call,
+making them available for the life of the Stitch.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">local</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">com</span><span class="p">.</span><span class="n">twitter</span><span class="p">.</span><span class="n">util</span><span class="p">.</span><span class="nc">Local</span><span class="p">[</span><span class="nc">Int</span><span class="p">]()</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">local</span><span class="p">())</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="mi">1</span><span class="p">)(</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+<span class="p">))</span><span class="w"> </span><span class="c1">// result: Some(1)</span>
+</pre></div>
+</div>
+<p>In the below examples, the <cite>local</cite> is defined because it wraps the
+creation of an <em>eagerly</em> evaluated <a class="reference internal" href="BasicExamples.html#const"><span class="std std-ref">Const</span></a>.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">local</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">com</span><span class="p">.</span><span class="n">twitter</span><span class="p">.</span><span class="n">util</span><span class="p">.</span><span class="nc">Local</span><span class="p">[</span><span class="nc">Int</span><span class="p">]()</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="mi">1</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">local</span><span class="p">()))</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span><span class="w"> </span><span class="c1">// result: Some(1)</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">flatMap</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">  </span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="mi">1</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="n">local</span><span class="p">()))</span>
+<span class="p">)</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span><span class="w"> </span><span class="c1">// result: Some(1)</span>
+</pre></div>
+</div>
+<p>In the below examples, the <cite>local</cite> is defined because <cite>Stitch.let</cite> wraps
+the Stitch.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">local</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="n">com</span><span class="p">.</span><span class="n">twitter</span><span class="p">.</span><span class="n">util</span><span class="p">.</span><span class="nc">Local</span><span class="p">[</span><span class="nc">Int</span><span class="p">]()</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="n">local</span><span class="p">)(</span><span class="mi">1</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">  </span><span class="n">local</span><span class="p">())</span>
+<span class="p">)</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span><span class="w"> </span><span class="c1">// result: Some(1)</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">flatMap</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="n">local</span><span class="p">)(</span><span class="mi">1</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">local</span><span class="p">()))</span>
+<span class="p">)</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">))</span><span class="w"> </span><span class="c1">// result: Some(1)</span>
+
+<span class="kd">val</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="n">local</span><span class="p">)(</span><span class="mi">2</span><span class="p">)(</span><span class="nc">Stitch</span><span class="p">.</span><span class="nc">Unit</span><span class="p">.</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">local</span><span class="p">()))</span>
+<span class="nc">Await</span><span class="p">.</span><span class="n">result</span><span class="p">(</span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="mi">1</span><span class="p">)(</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">run</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+<span class="p">))</span><span class="w"> </span><span class="c1">// result: Some(2)</span>
+</pre></div>
+</div>
+<p>In the above examples we use Locals within Stitch code, Locals which are available in your Stitch code will also
+be available in <cite>callFuture</cite>s (non-batched calls), however Locals set with <cite>Stitch.let</cite> will not be available in
+<cite>Group</cite>s (invoked with <cite>Stitch.call</cite>). This is because the batching that occurs with a <cite>Group</cite> doesn’t really make
+sense unless all the elements of the batch have the same Locals (<cite>local.let</cite> around the <cite>Stitch.run</cite> call will, however,
+be defined in the Group), it’s rarely correct to split batches based on all Locals. Instead if you do care about
+specific Locals in your Group, you can wire it into the Group instance or into the input arguments for the Group.</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="c1">// Group with localValue in the constructor, will batched based on `localValue`</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">GroupWithLocalInConstructor</span><span class="p">(</span><span class="n">localValue</span><span class="p">:</span><span class="w"> </span><span class="nc">Option</span><span class="p">[</span><span class="nc">Int</span><span class="p">])</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">SeqGroup</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Option</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
+
+<span class="n">s</span><span class="p">.</span><span class="n">flatMap</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="nc">GroupWithLocalInConstructor</span><span class="p">(</span><span class="n">local</span><span class="p">.</span><span class="n">apply</span><span class="p">())))</span>
+
+<span class="c1">// OR</span>
+
+<span class="c1">// Group with localValue in the input, different `localValue`s will be in the same batch</span>
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">IntWithContext</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="n">localValue</span><span class="p">:</span><span class="w"> </span><span class="nc">Option</span><span class="p">[</span><span class="nc">Int</span><span class="p">])</span>
+<span class="kd">val</span><span class="w"> </span><span class="n">groupWithLocalInInputArg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">new</span><span class="w"> </span><span class="nc">SeqGroup</span><span class="p">[</span><span class="nc">IntWithContext</span><span class="p">,</span><span class="w"> </span><span class="nc">Option</span><span class="p">[</span><span class="nc">Int</span><span class="p">]]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">}</span>
+
+<span class="n">s</span><span class="p">.</span><span class="n">flatMap</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="nc">IntWithContext</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">local</span><span class="p">.</span><span class="n">apply</span><span class="p">()),</span><span class="w"> </span><span class="n">groupWithLocalInInputArg</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Finagle Context and TwitterContext is passed around with <cite>Local</cite>s. To let-scope these you need to make a <cite>Letter</cite>,
+here’s an example of a <cite>Letter</cite> for a Finagle local context:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">object</span><span class="w"> </span><span class="nc">MyContextKeyLetter</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Letter</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">let</span><span class="p">[</span><span class="nc">S</span><span class="p">](</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">)(</span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">S</span><span class="p">):</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Contexts</span><span class="p">.</span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="nc">MyContextKey</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">)(</span><span class="n">s</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">// OR generically</span>
+
+<span class="k">case</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">ContextLetter</span><span class="p">[</span><span class="nc">L</span><span class="p">](</span><span class="n">contextKey</span><span class="p">:</span><span class="w"> </span><span class="nc">Contexts</span><span class="p">.</span><span class="n">local</span><span class="p">.</span><span class="nc">Key</span><span class="p">[</span><span class="nc">L</span><span class="p">])</span><span class="w"> </span><span class="k">extends</span><span class="w"> </span><span class="nc">Letter</span><span class="p">[</span><span class="nc">L</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">override</span><span class="w"> </span><span class="k">def</span><span class="w"> </span><span class="nf">let</span><span class="p">[</span><span class="nc">S</span><span class="p">](</span><span class="n">value</span><span class="p">:</span><span class="w"> </span><span class="nc">L</span><span class="p">)(</span><span class="n">s</span><span class="p">:</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="nc">S</span><span class="p">):</span><span class="w"> </span><span class="nc">S</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Contexts</span><span class="p">.</span><span class="n">local</span><span class="p">.</span><span class="n">let</span><span class="p">(</span><span class="n">contextKey</span><span class="p">,</span><span class="w"> </span><span class="n">value</span><span class="p">)(</span><span class="n">s</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Locals behave the same way with <a class="reference internal" href="Arrows.html#arrows"><span class="std std-ref">Arrows</span></a>, the scoping of the Locals must be around
+the <cite>Stitch.run</cite> method call or by using <cite>Arrow.let</cite> and not around the creation of the Stitch or Arrow itself,
+except for <a class="reference internal" href="BasicExamples.html#const"><span class="std std-ref">Const</span></a> Stitches and Arrows which are evaluated eagerly.</p>
+<p>Next <a class="reference internal" href="Recursion.html#recursion"><span class="std std-ref">Recursion</span></a></p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Stitch</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Setup.html">Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchVsFuture.html">Stitch vs Future</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WhyUseStitch.html">Why use Stitch?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="BasicExamples.html">Basic Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FailureHandling.html">Failure handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Groups.html">Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ServiceAdapters.html">Service Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchConcepts.html">Stitch Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="QueryExecution.html">Query Execution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html#never-re-runnable">Never Re-Runnable</a></li>
+<li class="toctree-l1"><a class="reference internal" href="EfficientQueries.html">Efficient Queries</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchCache.html">StitchCache</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Twitter Locals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Recursion.html">Recursion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Advanced.html">Advanced</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Arrows.html">Arrows</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="StitchCache.html" title="previous chapter">StitchCache</a></li>
+      <li>Next: <a href="Recursion.html" title="next chapter">Recursion</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/TwitterLocals.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

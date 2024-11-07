@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Recursion &#8212; Stitch  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d1102ebc" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=686e5160" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Advanced" href="Advanced.html" />
+    <link rel="prev" title="Twitter Locals" href="TwitterLocals.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="recursion">
+<span id="id1"></span><h1>Recursion<a class="headerlink" href="#recursion" title="Link to this heading">¶</a></h1>
+<p>Regular Stitch execution isn’t stack safe. Recursive computations must use <cite>Stitch.recursive</cite>
+or <cite>Arrow.recursive</cite> to avoid stack overflows. Examples:</p>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">fact</span><span class="p">(</span><span class="n">i</span><span class="p">:</span><span class="w"> </span><span class="nc">Int</span><span class="p">):</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">[</span><span class="nc">Int</span><span class="p">]</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">recursive</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="nc">Stitch</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="n">fact</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">).</span><span class="n">map</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-scala notranslate"><div class="highlight"><pre><span></span><span class="kd">val</span><span class="w"> </span><span class="n">fact</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="nc">Arrow</span><span class="p">.</span><span class="n">recursive</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">self</span><span class="w"> </span><span class="o">=&gt;</span>
+<span class="w">    </span><span class="nc">Arrow</span><span class="p">.</span><span class="n">choose</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">](</span>
+<span class="w">      </span><span class="nc">Arrow</span><span class="p">.</span><span class="nc">Choice</span><span class="p">.</span><span class="n">when</span><span class="p">(</span><span class="n">_</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nc">Arrow</span><span class="p">.</span><span class="n">value</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span>
+<span class="w">      </span><span class="nc">Arrow</span><span class="p">.</span><span class="nc">Choice</span><span class="p">.</span><span class="n">otherwise</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nc">Arrow</span>
+<span class="w">          </span><span class="p">.</span><span class="n">zipWithArg</span><span class="p">(</span>
+<span class="w">            </span><span class="nc">Arrow</span>
+<span class="w">              </span><span class="p">.</span><span class="n">map</span><span class="p">[</span><span class="nc">Int</span><span class="p">,</span><span class="w"> </span><span class="nc">Int</span><span class="p">](</span><span class="n">_</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+<span class="w">              </span><span class="p">.</span><span class="n">andThen</span><span class="p">(</span><span class="n">self</span><span class="p">)</span>
+<span class="w">          </span><span class="p">)</span>
+<span class="w">          </span><span class="p">.</span><span class="n">map</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">case</span><span class="w"> </span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="o">=&gt;</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span>
+<span class="w">          </span><span class="p">}</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">)</span>
+<span class="w">  </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The execution of recursive computations uses on-stack recursion in batches to avoid the overhead
+of unfolding the thread stack on each recursion. The number of recursions allowed on the stack
+is limited by the system property <cite>stitch.maxRecursionDepth</cite>, which has a default of <cite>200</cite>. The
+execution unfolds the stack only after the number of recursions reach this limit.</p>
+<p>Applications might need to change <cite>stitch.maxRecursionDepth</cite> to a lower value in case they see
+stack overflows with recursive computations. Increasing the value might improve performance if
+it can be done safely.</p>
+<p>Next <a class="reference internal" href="Advanced.html#advanced"><span class="std std-ref">Advanced</span></a></p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Stitch</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Setup.html">Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchVsFuture.html">Stitch vs Future</a></li>
+<li class="toctree-l1"><a class="reference internal" href="WhyUseStitch.html">Why use Stitch?</a></li>
+<li class="toctree-l1"><a class="reference internal" href="BasicExamples.html">Basic Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="FailureHandling.html">Failure handling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Groups.html">Groups</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ServiceAdapters.html">Service Adapters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchConcepts.html">Stitch Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="QueryExecution.html">Query Execution</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html">Running</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Running.html#never-re-runnable">Never Re-Runnable</a></li>
+<li class="toctree-l1"><a class="reference internal" href="EfficientQueries.html">Efficient Queries</a></li>
+<li class="toctree-l1"><a class="reference internal" href="StitchCache.html">StitchCache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="TwitterLocals.html">Twitter Locals</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Recursion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Advanced.html">Advanced</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Arrows.html">Arrows</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="TwitterLocals.html" title="previous chapter">Twitter Locals</a></li>
+      <li>Next: <a href="Advanced.html" title="next chapter">Advanced</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.1.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/Recursion.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
